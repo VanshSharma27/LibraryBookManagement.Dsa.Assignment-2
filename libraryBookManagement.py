@@ -1,55 +1,101 @@
-class BookNode:
-    def __init__(self, book_id, title, author, status="Available"):
+# -----------------------------
+# Node Class for Book (Linked List)
+# -----------------------------
+class Book:
+    def _init_(self, book_id, title, author, status="Available"):
         self.book_id = book_id
         self.title = title
         self.author = author
         self.status = status
         self.next = None
 
+
+# -----------------------------
+# Stack Node for Transactions
+# -----------------------------
+class Transaction:
+    def _init_(self, action, book_id):
+        self.action = action  # "Issue" or "Return"
+        self.book_id = book_id
+        self.next = None
+
+
+# -----------------------------
+# Stack Class for Undo Functionality
+# -----------------------------
+class TransactionStack:
+    def _init_(self):
+        self.top = None
+
+    def push(self, action, book_id):
+        new_trans = Transaction(action, book_id)
+        new_trans.next = self.top
+        self.top = new_trans
+
+    def pop(self):
+        if self.top is None:
+            return None
+        popped = self.top
+        self.top = self.top.next
+        return popped
+
+    def is_empty(self):
+        return self.top is None
+
+    def view_transactions(self):
+        if self.top is None:
+            print("No recent transactions.")
+            return
+        print("\nRecent Transactions:")
+        temp = self.top
+        while temp:
+            print(f"{temp.action} Book ID: {temp.book_id}")
+            temp = temp.next
+        print()
+
+
+# -----------------------------
+# BookList Class (Linked List)
+# -----------------------------
 class BookList:
-    def __init__(self):
+    def _init_(self):
         self.head = None
 
-    def insertBook(self, book_id, title, author):
-        # Check for duplicate book_id
-        if self.searchBook(book_id):
-            print(f"Book with ID {book_id} already exists.")
-            return
-        
-        new_book = BookNode(book_id, title, author)
-        if not self.head:
+    def insert_book(self, book_id, title, author):
+        new_book = Book(book_id, title, author)
+        if self.head is None:
             self.head = new_book
         else:
             temp = self.head
             while temp.next:
                 temp = temp.next
             temp.next = new_book
-        print(f"Book '{title}' added successfully.")
+        print("Book inserted successfully!")
 
-    def deleteBook(self, book_id):
-        temp = self.head
+    def delete_book(self, book_id):
+        if self.head is None:
+            print("No books available.")
+            return
+
+        if self.head.book_id == book_id:
+            self.head = self.head.next
+            print("Book deleted successfully!")
+            return
+
         prev = None
-        while temp and temp.book_id != book_id:
-            prev = temp
-            temp = temp.next
+        curr = self.head
+        while curr and curr.book_id != book_id:
+            prev = curr
+            curr = curr.next
 
-        if not temp:
+        if curr is None:
             print("Book not found.")
             return
 
-        # Check if book is issued
-        if temp.status == "Issued":
-            print("Cannot delete an issued book.")
-            return
+        prev.next = curr.next
+        print("Book deleted successfully!")
 
-        if prev:
-            prev.next = temp.next
-        else:
-            self.head = temp.next
-
-        print(f"Book '{temp.title}' deleted successfully.")
-
-    def searchBook(self, book_id):
+    def search_book(self, book_id):
         temp = self.head
         while temp:
             if temp.book_id == book_id:
@@ -57,88 +103,76 @@ class BookList:
             temp = temp.next
         return None
 
-    def displayBooks(self):
-        if not self.head:
-            print("No books available in the library.")
+    def display_books(self):
+        if self.head is None:
+            print("No books in the library.")
             return
-        print("\nCurrent Books in Library:")
+
+        print("\nCurrent Book List:")
         temp = self.head
         while temp:
-            print(f"ID: {temp.book_id}, Title: {temp.title}, Author: {temp.author}, Status: {temp.status}")
+            print(
+                f"Book ID: {temp.book_id} | Title: {temp.title} | "
+                f"Author: {temp.author} | Status: {temp.status}"
+            )
             temp = temp.next
+        print()
 
-class Stack:
-    def __init__(self):
-        self.stack = []
-
-    def push(self, data):
-        self.stack.append(data)
-
-    def pop(self):
-        if not self.isEmpty():
-            return self.stack.pop()
-        return None
-
-    def isEmpty(self):
-        return len(self.stack) == 0
-
-    def display(self):
-        if self.isEmpty():
-            print("No transactions yet.")
+    # -----------------------------
+    # Transaction Functions
+    # -----------------------------
+    def issue_book(self, book_id, stack):
+        book = self.search_book(book_id)
+        if not book:
+            print("Book not found!")
             return
-        print("\nRecent Transactions:")
-        for t in reversed(self.stack):
-            print(t)
+        if book.status == "Issued":
+            print("Book already issued.")
+            return
+        book.status = "Issued"
+        stack.push("Issue", book_id)
+        print("Book issued successfully!")
 
-class TransactionSystem:
-    def __init__(self):
-        self.books = BookList()
-        self.transactions = Stack()
+    def return_book(self, book_id, stack):
+        book = self.search_book(book_id)
+        if not book:
+            print("Book not found!")
+            return
+        if book.status == "Available":
+            print("Book is already available.")
+            return
+        book.status = "Available"
+        stack.push("Return", book_id)
+        print("Book returned successfully!")
 
-    def issueBook(self, book_id):
-        book = self.books.searchBook(book_id)
-        if book and book.status == "Available":
-            book.status = "Issued"
-            self.transactions.push(("issue", book_id))
-            print(f"Book '{book.title}' has been issued.")
-        else:
-            print("Book not available or already issued.")
-
-    def returnBook(self, book_id):
-        book = self.books.searchBook(book_id)
-        if book and book.status == "Issued":
-            book.status = "Available"
-            self.transactions.push(("return", book_id))
-            print(f"Book '{book.title}' has been returned.")
-        else:
-            print("Book not issued or not found.")
-
-    def undoTransaction(self):
-        if self.transactions.isEmpty():
-            print("No transaction to undo.")
+    def undo_transaction(self, stack):
+        if stack.is_empty():
+            print("No transactions to undo.")
             return
 
-        action, book_id = self.transactions.pop()
-        book = self.books.searchBook(book_id)
+        last = stack.pop()
+        book = self.search_book(last.book_id)
         if not book:
             print("Book not found for undo operation.")
             return
 
-        if action == "issue":
+        if last.action == "Issue":
             book.status = "Available"
-            print(f"Undo successful: Book '{book.title}' marked as Available again.")
-        elif action == "return":
+            print("Undo successful: Book returned to library.")
+        elif last.action == "Return":
             book.status = "Issued"
-            print(f"Undo successful: Book '{book.title}' marked as Issued again.")
+            print("Undo successful: Book re-issued.")
 
-    def viewTransactions(self):
-        self.transactions.display()
 
+# -----------------------------
+# Menu Driven Program
+# -----------------------------
 def main():
-    system = TransactionSystem()
+    library = BookList()
+    transactions = TransactionStack()
 
     while True:
-        print("\n=== Library Book Management System ===")
+        print("\n========== Library Management System ==========")
         print("1. Insert Book")
         print("2. Delete Book")
         print("3. Search Book")
@@ -151,47 +185,68 @@ def main():
 
         choice = input("Enter your choice: ")
 
-        if choice == '1':
-            bid = int(input("Enter Book ID: "))
-            title = input("Enter Book Title: ")
-            author = input("Enter Author Name: ")
-            system.books.insertBook(bid, title, author)
+        if choice == "1":
+            try:
+                book_id = int(input("Enter Book ID: "))
+                title = input("Enter Book Title: ")
+                author = input("Enter Author Name: ")
+                library.insert_book(book_id, title, author)
+            except ValueError:
+                print("Invalid input. Book ID must be an integer.")
 
-        elif choice == '2':
-            bid = int(input("Enter Book ID to delete: "))
-            system.books.deleteBook(bid)
+        elif choice == "2":
+            try:
+                book_id = int(input("Enter Book ID to delete: "))
+                library.delete_book(book_id)
+            except ValueError:
+                print("Invalid input. Book ID must be an integer.")
 
-        elif choice == '3':
-            bid = int(input("Enter Book ID to search: "))
-            book = system.books.searchBook(bid)
-            if book:
-                print(f"\nBook Found:\nID: {book.book_id}\nTitle: {book.title}\nAuthor: {book.author}\nStatus: {book.status}")
-            else:
-                print("Book not found.")
+        elif choice == "3":
+            try:
+                book_id = int(input("Enter Book ID to search: "))
+                book = library.search_book(book_id)
+                if book:
+                    print(
+                        f"Book Found: {book.title} by {book.author} | Status: {book.status}"
+                    )
+                else:
+                    print("Book not found.")
+            except ValueError:
+                print("Invalid input. Book ID must be an integer.")
 
-        elif choice == '4':
-            system.books.displayBooks()
+        elif choice == "4":
+            library.display_books()
 
-        elif choice == '5':
-            bid = int(input("Enter Book ID to issue: "))
-            system.issueBook(bid)
+        elif choice == "5":
+            try:
+                book_id = int(input("Enter Book ID to issue: "))
+                library.issue_book(book_id, transactions)
+            except ValueError:
+                print("Invalid input. Book ID must be an integer.")
 
-        elif choice == '6':
-            bid = int(input("Enter Book ID to return: "))
-            system.returnBook(bid)
+        elif choice == "6":
+            try:
+                book_id = int(input("Enter Book ID to return: "))
+                library.return_book(book_id, transactions)
+            except ValueError:
+                print("Invalid input. Book ID must be an integer.")
 
-        elif choice == '7':
-            system.undoTransaction()
+        elif choice == "7":
+            library.undo_transaction(transactions)
 
-        elif choice == '8':
-            system.viewTransactions()
+        elif choice == "8":
+            transactions.view_transactions()
 
-        elif choice == '9':
-            print("Exiting... Goodbye!")
+        elif choice == "9":
+            print("Exiting program...")
             break
 
         else:
-            print("Invalid choice. Try again.")
+            print("Invalid choice! Try again.")
 
-if __name__ == "__main__":
+
+# -----------------------------
+# Run the Program
+# -----------------------------
+if _name_ == "_main_":
     main()
